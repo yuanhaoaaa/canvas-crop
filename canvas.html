@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no;
+    ">
+    <title>Document</title>
+    <style>
+        html,body{
+            width: 100%;
+            height: 100%;
+            background-color: #eee;
+            margin: 0;
+            user-select: none;
+        }
+       
+        #qrcode-container{
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="canvas-container">
+        <canvas id="canvas"></canvas>
+    </div>
+    <button id="poster-button">生成海报</button>
+    <div id="qrcode-container">
+    </div>
+
+    <script src="./libory/qrcode.js"></script>
+    <script>
+        let canvas = document.querySelector('#canvas'),
+            canvasContainer = document.querySelector('.canvas-container'),
+            posterButton = document.querySelector('#poster-button'),
+            ctx = canvas.getContext('2d'),
+            // 背景图片
+            backgroundImagePath = 'https://cdn-ufile-course.beiwaiguoji.com/files/upload/posterImage/2020/08/05/7/8177dbbeaee043e49d7b379462117750.png',
+            // 上传图片
+            uploadImagePath = 'https://bwgj-course.cn-bj.ufileos.com/test/homework/image/202008/07/eU1kYL1w38YeVvaiG9wwdr4GXlsadPOS.jpeg',
+            backgroundImage = '',
+            uploadImage = '',
+            // 屏幕宽高
+            winWidth = window.innerWidth,
+            winHeight = window.innerHeight,
+            // 单指
+            oneFingerClientX = 0,
+            oneFingerClientY = 0,
+            oneFingerMoveX = 0,
+            oneFingerMoveY = 0,
+            // 双指
+            oneFingerStartX = 0,
+            twoFingerStartX = 0,
+            firstFingerMoveX = 0,
+            secondFingerMoveX = 0,
+
+            uploadImageWidth = 0,
+            uploadImageHeight = 0,
+            uploadImageInitWidth = 0,
+            uploadImageInitHeight = 0
+
+            main()
+
+
+            function main() {
+                canvas.width = 614 * winWidth / 750,
+                canvas.height = 830 * canvas.width / 614,
+                this.initCanvasImage()
+                bindEvent()
+            }
+
+            /**
+            *   绑定事件
+            */
+            function bindEvent() {
+                
+
+                canvasContainer.addEventListener('touchstart', onTouchStart)
+                canvasContainer.addEventListener('touchmove', onTouchMove)
+
+                function onTouchStart(e) {
+                    let touchesLength = e.touches.length
+                    // 单指操作
+                    if (touchesLength === 2) {
+                        let oneFinger = e.touches[0],
+                            twoFinger = e.touches[1]
+
+                        oneFingerStartX = oneFinger.clientX
+                        twoFingerStartX = twoFinger.clientX
+
+                    }
+                   
+                }
+
+                function onTouchMove(e) {
+                    touchesLength = e.touches.length
+                    // 单指操作
+                    if (touchesLength === 1) {
+                        handleOneFinger(e)
+                    } else if (touchesLength === 2) {
+                        handleTwoFinger(e)
+                    }
+                }
+
+                /**
+                *   处理单指
+                */
+                function handleOneFinger(e) {
+                    let oneFinger = e.touches[0]
+                    let {clientX, clientY} = oneFinger
+                    // X轴移动
+                    if (oneFingerClientX !== clientX) {
+                        if (clientX > oneFingerClientX) {
+                            // 向右
+                            oneFingerMoveX += 3
+                        } else {
+                            // 向左
+                            oneFingerMoveX -= 3
+                        }
+                    }
+                    // Y轴移动
+                    if (oneFingerClientY !== clientY) {
+                        if (clientY > oneFingerClientY) {
+                            // 向右
+                            oneFingerMoveY += 3
+                        } else {
+                            // 向左
+                            oneFingerMoveY -= 3
+                        }
+                    }
+                   
+                    oneFingerClientX = clientX
+                    oneFingerClientY = clientY
+                    redrawImage()
+                }
+
+                /**
+                *   处理双指
+                */
+                function handleTwoFinger(e) {
+                    let oneFinger = e.touches[0],
+                        twoFinger = e.touches[1],
+                        oneClientX = oneFinger.clientX,
+                        twoClientX = twoFinger.clientX
+
+                    if (oneClientX >= firstFingerMoveX && twoClientX <= secondFingerMoveX) {
+                            // 向内
+                            uploadImageWidth = oneFingerStartX < twoFingerStartX ? uploadImageWidth - 3 : uploadImageWidth + 3
+                        } else {
+                            // 向外
+                            uploadImageWidth = oneFingerStartX < twoFingerStartX ? uploadImageWidth + 3 : uploadImageWidth - 3
+                        }
+
+                    
+
+                    firstFingerMoveX = oneClientX
+                    secondFingerMoveX = twoClientX
+                    // 算出同等比例的高度
+                    uploadImageHeight = uploadImageInitHeight * uploadImageWidth / uploadImageInitWidth
+                    // 重画
+                    redrawImage()
+                }
+            }
+
+            /**
+            *   重画图片
+            */
+            function redrawImage() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height)
+                ctx.drawImage(uploadImage, oneFingerMoveX, oneFingerMoveY, uploadImageWidth, uploadImageHeight)
+                ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height)
+            }
+
+            /**
+            *   初始化
+            */
+            async function initCanvasImage() {
+                uploadImage = await loadingImage(uploadImagePath)
+                backgroundImage = await loadingImage(backgroundImagePath)
+                // 获取图片宽高
+                uploadImageWidth = uploadImage.width
+                uploadImageInitWidth = uploadImage.width
+                uploadImageHeight = uploadImage.height
+                uploadImageInitHeight = uploadImage.height
+                // canvas的层级 最后画的层级高
+                ctx.drawImage(uploadImage, 0, 0)
+                ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height)
+            }
+
+            /**
+            *   加载图片
+            * @param {String}   图片路径
+            */
+            function loadingImage(path) {
+                return new Promise((resolve, reject) => {
+                    let img = new Image()
+                    /**
+                    *   坑1 使用crossOrigin 用来解决跨域问题，但是前提是图片响应头 必须有 Access-Control-Allow-Origin: * 字段
+                    *   坑2 该属性 必须写在src之前，否则在ios会报安全问题
+                    *   上面两个问题 都是在最后裁剪的问题  ctx.toDataURL()
+                    */
+                    img.crossOrigin = "anonymous";
+                    img.src = path
+                    img.onload = () => {
+                        resolve(img)
+                    }
+                })
+            }
+            
+            /**
+            *   生成海报
+            */
+            posterButton.addEventListener('click', () => {
+                let qrcodeContainer = document.querySelector('#qrcode-container')
+                qrcodeContainer.innerHTML = ''
+                // 
+                // 生成二维码qrcode
+                var qrcode = new QRCode('qrcode-container', {
+                    text: "http://www.baidu.com",
+                    width: 128,
+                    height: 128,
+                });
+                    let code = new Image()
+                    code.src = qrcode._oDrawing.getImageUrl()
+                    code.onload = () => {
+                        ctx.drawImage(code,  canvas.width - 128,  canvas.height - 128, 128, 128)
+                        let img = new Image()
+                        img.src = canvas.toDataURL()
+                        img.onload = () => {
+                            document.body.appendChild(img)
+                        }
+                    }
+            })
+    </script>
+</body>
+</html>
